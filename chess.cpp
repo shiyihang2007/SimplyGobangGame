@@ -12,15 +12,17 @@ chessBroad::chessBroad()
     colorSet[1] = RGB(0, 127, 255);
     colorSet[2] = RGB(255, 127, 0);
 }
-chessBroad::chessBroad(int x, int y)
+chessBroad::chessBroad(int x, int y, int padding)
 {
-    height = 20;
-    width = 20;
-    BroadPadding = 20;
+    height = x;
+    width = y;
+    BroadPadding = padding;
     nowInRound = 1;
     playerCnt = 2;
     winner = 0;
     memset(broad, 0, sizeof(broad));
+    colorSet[1] = RGB(0, 127, 255);
+    colorSet[2] = RGB(255, 127, 0);
 }
 
 chessBroad::~chessBroad()
@@ -43,7 +45,7 @@ int chessBroad::getBroadPadding() const
 COLORREF chessBroad::getColor(playerType p) const
 {
     if (p < 0 || p >= 32768) {
-        fprintf(flog, "<Info> Unavaible Color!\n");
+        // fprintf(flog, "<Info> Unavaible Color!\n");
         return RGB(255, 255, 255);
     }
     return colorSet[p];
@@ -78,7 +80,7 @@ void chessBroad::nextRound(int x)
 playerType chessBroad::getChess(int x, int y) const
 {
     if (x <= 0 || x > height || y <= 0 || y > height) {
-        fprintf(flog, "<Info> GetChess Unavaible Position! %d %d\n", x, y);
+        // fprintf(flog, "<Info> GetChess Unavaible Position! %d %d\n", x, y);
         return 0;
     }
     return broad[x][y];
@@ -93,15 +95,17 @@ POINT chessBroad::translatePosition(const POINT &pos) const
 void chessBroad::setChess(int x, int y, playerType p)
 {
     if (x <= 0 || y <= 0 || x > height || y > width) {
-        fprintf(flog, "<Info> Unavaible Position! %d %d\n", x, y);
+        // fprintf(flog, "<Info> Unavaible Position! %d %d\n", x, y);
         return;
     }
     if (p >= 32768) {
-        fprintf(flog, "<Info> Unavaible Color!\n");
+        // fprintf(flog, "<Info> Unavaible Color!\n");
         return;
     }
     broad[x][y] = p;
-    if (this->checkIsEnding(x, y)) {
+    lstPlaceChessPos.x = x;
+    lstPlaceChessPos.y = y;
+    if (this->checkIsEnding(x, y) && !winner) {
         winner = p;
     }
 }

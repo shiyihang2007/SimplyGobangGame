@@ -5,12 +5,17 @@
 #define UNICODE
 #endif
 
+#ifndef DEBUG
+#define DEBUG
+#endif
+
 #include <cstdio>
 #include <ctime>
 
 #include <conio.h>
 
 #include <chrono>
+#include <mutex>
 #include <random>
 #include <string>
 #include <thread>
@@ -28,7 +33,7 @@ HANDLE hCon, hInCon;
 
 FILE *flog;
 
-chessBroad cbroad;
+chessBroad cbroad(40, 40, 15);
 
 AI pAI_01(1, &cbroad);
 AI pAI_02(2, &cbroad);
@@ -36,6 +41,7 @@ AI pAI_03(3, &cbroad);
 AI pAI_04(4, &cbroad);
 
 POINT lstVkLButtonPos;
+POINT lstPlaceChessPos;
 
 std::random_device rd;
 std::mt19937 randt(rd());
@@ -45,7 +51,23 @@ int clickState;
 
 std::thread *thMouseInputProc;
 
-int main()
+std::vector<int> checkerByShiyihangRestudyValue = {
+    -106110967, // 0
+    106110967,  // 1
+    53055483,   // 2
+    26527741,   // 3
+    13263870,   // 4
+    1001,       // 5
+    500,        // 6
+    6003,       // 7
+    3001,       // 8
+    20,         // 9
+    10,         // 10
+    41,         // 11
+    21,         // 12
+};
+
+int main(int argc, const char *argv[])
 {
     hwnd = GetForegroundWindow();
     hCon = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -55,6 +77,8 @@ int main()
     CONSOLE_CURSOR_INFO hCurInfo;
     hCurInfo.bVisible = 0, hCurInfo.dwSize = 0;
     SetConsoleCursorInfo(hInCon, &hCurInfo);
+    ui::canvaHeight = ((cbroad.getHeight() + 2) * cbroad.getBroadPadding());
+    ui::canvaWidth = ((cbroad.getWidth() + 2) * cbroad.getBroadPadding()) + 100;
     srand(time(NULL));
 
     flog = fopen(("./log/" + std::to_string(time(NULL)) + ".log").c_str(), "at+");
@@ -63,7 +87,7 @@ int main()
     fprintf(flog, "Program Inited.\n");
 
     COORD dwSize;
-    dwSize.X = 80, dwSize.Y = 26;
+    dwSize.X = 80, dwSize.Y = 30;
     if (!SetConsoleScreenBufferSize(hCon, dwSize)) {
         fprintf(flog, "<Error> ScreenBuf Change Error! \n");
     }
@@ -74,31 +98,21 @@ int main()
         fprintf(flog, "<Error> Screen Change Error! \n");
     }
 
-    cbroad.changeSize(20, 20);
-    cbroad.changePlayer(2);
-
-    ui::canvaHeight = ((cbroad.getHeight() + 2) * cbroad.getBroadPadding());
-    ui::canvaWidth = ((cbroad.getWidth() + 2) * cbroad.getBroadPadding()) + 100;
-
     thMouseInputProc = new std::thread(MouseInputProc);
     thMouseInputProc->detach();
+
+    int nogui = argc > 1 && argv[1] == "--nogui";
 
     int tps = 0, ttps = 0, rtps = 60;
     clock_t sClock = clock();
     clock_t nowClock = 0;
     int sleepTime = 1000 / rtps;
-
     while (!exitFlag) {
 
         ui::displayStart(hwnd);
-        ui::printTEXT(cbroad.getWidth() * cbroad.getBroadPadding() + 3 * cbroad.getBroadPadding() + 2,
-                      4 * cbroad.getBroadPadding(),
+        ui::printTEXT(cbroad.getWidth() * cbroad.getBroadPadding() + 3 * cbroad.getBroadPadding(),
+                      4 * cbroad.getBroadPadding() + 5,
                       L"Now",
-                      cbroad.getColor(cbroad.getNowInRound()),
-                      RGB(0, 0, 0));
-        ui::printTEXT(cbroad.getWidth() * cbroad.getBroadPadding() + 3 * cbroad.getBroadPadding() - 2,
-                      5 * cbroad.getBroadPadding(),
-                      L"Round",
                       cbroad.getColor(cbroad.getNowInRound()),
                       RGB(0, 0, 0));
         ui::printCircleLine(cbroad.getWidth() * cbroad.getBroadPadding() + 2 * cbroad.getBroadPadding(),
@@ -110,7 +124,14 @@ int main()
                             cbroad.getBroadPadding() / 2,
                             RGB(192, 192, 192));
         cbroad.redisplay();
-        ui::redisplay();
+        COLORREF tColor = cbroad.getColor(cbroad.getChess(lstPlaceChessPos.x, lstPlaceChessPos.y));
+        ui::printCircleLine(lstPlaceChessPos.y * cbroad.getBroadPadding(),
+                            lstPlaceChessPos.x * cbroad.getBroadPadding(),
+                            cbroad.getBroadPadding() / 2 - 3,
+                            RGB(R(tColor) * 0.4 + 127, G(tColor) * 0.4 + 127, B(tColor) * 0.4 + 127));
+        if (!nogui) {
+            ui::redisplay();
+        }
         ui::displayCleanUp(hwnd);
 
         INPUT_RECORD bufConIn[256];
@@ -147,20 +168,25 @@ int main()
         nowClock = clock();
         if (nowClock - sClock >= CLOCKS_PER_SEC) {
             tps = ttps;
+            ttps = 0;
             sClock = nowClock;
-            if (tps > rtps) {
-                ++sleepTime;
+            sleepTime += tps - rtps ? (tps - rtps) / 2 + 1 : 0;
+            if (sleepTime < 1) {
+                sleepTime = 1;
             }
-            else if (tps < rtps) {
-                --sleepTime;
+            if (sleepTime > 100) {
+                sleepTime = 100;
             }
-            fprintf(flog, "<Info> tps: %d sleeptime: %dms\n", tps, sleepTime);
+            fprintf(flog, "<Info> MainThread tps: %d sleeptime: %dms\n", tps, sleepTime);
         }
         ++ttps;
+        std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
 
         if (cbroad.checkIsEnding()) {
             exitFlag = 1;
         }
+
+        std::fflush(flog);
     }
     delete thMouseInputProc;
 
@@ -172,7 +198,9 @@ int main()
     ui::printTEXT(10, 20, (std::wstring(L"Winner is Player ") + std::to_wstring(cbroad.checkIsEnding())).c_str(), RGB(255, 255, 0), RGB(0, 0, 0));
     ui::printTEXT(10, 40, L"Press Any Key To Continue...", RGB(255, 255, 255), RGB(0, 0, 0));
 
-    ui::redisplay();
+    if (!nogui) {
+        ui::redisplay();
+    }
     ui::displayCleanUp(hwnd);
 
     while (kbhit()) {
@@ -182,5 +210,7 @@ int main()
     getch();
 
     fprintf(flog, "Program Ended.\n");
+
+    printf("%.2lf\n", cbroad.checkIsEnding() == 1 ? (double)clock() / CLOCKS_PER_SEC : 1e9);
     return 0;
 }

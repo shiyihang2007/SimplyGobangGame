@@ -8,6 +8,8 @@
 
 extern FILE *flog;
 
+extern POINT lstPlaceChessPos;
+
 typedef int playerType;
 
 class chessBroad {
@@ -21,7 +23,7 @@ class chessBroad {
 
 public:
     chessBroad();
-    chessBroad(int x, int y);
+    chessBroad(int x, int y, int padding = 20);
 
     ~chessBroad();
 

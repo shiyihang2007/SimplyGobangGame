@@ -2,7 +2,7 @@
 
 void MouseInputProc()
 {
-    int tps = 0, ttps = 0, rtps = 520;
+    int tps = 0, ttps = 0, rtps = 2;
     clock_t sClock = clock();
     clock_t nowClock = 0;
     int sleepTime = 1000 / rtps;
@@ -11,20 +11,36 @@ void MouseInputProc()
     clickState = 0;
 
     while (!exitFlag) {
+
         nowClock = clock();
         if (nowClock - sClock >= CLOCKS_PER_SEC) {
             tps = ttps;
+            ttps = 0;
             sClock = nowClock;
-            if (tps > rtps) {
-                ++sleepTime;
+            sleepTime += tps - rtps ? (tps - rtps) / 2 + 1 : 0;
+            if (sleepTime < 1) {
+                sleepTime = 1;
             }
-            else if (tps < rtps) {
-                --sleepTime;
+            if (sleepTime > 500) {
+                sleepTime = 500;
             }
-            fprintf(flog, "<Info> tps: %d sleeptime: %dms\n", tps, sleepTime);
+            fprintf(flog, "<Info> MouseProcThread tps: %d sleeptime: %dms\n", tps, sleepTime);
         }
         ++ttps;
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
+
+        if (cbroad.getNowInRound() == pAI_01.ptype) {
+            pAI_01.AIWork(2);
+        }
+        else if (cbroad.getNowInRound() == pAI_02.ptype) {
+            pAI_02.AIWork(256);
+        }
+        else if (cbroad.getNowInRound() == pAI_03.ptype) {
+            // pAI_03.AIWork();
+        }
+        else if (cbroad.getNowInRound() == pAI_04.ptype) {
+            // pAI_04.AIWork();
+        }
 
         POINT MousePos;
         GetCursorPos(&MousePos);
@@ -66,18 +82,8 @@ void MouseInputProc()
         }
         else {
         }
-
-        if (cbroad.getNowInRound() == pAI_01.ptype) {
-            pAI_01.AIWork(1);
-        }
-        if (cbroad.getNowInRound() == pAI_02.ptype) {
-            pAI_02.AIWork(2);
-        }
-        if (cbroad.getNowInRound() == pAI_03.ptype) {
-            // pAI_03.AIWork();
-        }
-        if (cbroad.getNowInRound() == pAI_04.ptype) {
-            // pAI_04.AIWork();
+        if (KEY_DOWN(VK_ESCAPE)) {
+            exitFlag = 1;
         }
     }
 }

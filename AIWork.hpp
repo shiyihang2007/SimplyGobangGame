@@ -9,9 +9,8 @@
 extern std::mt19937 randt;
 
 class AI {
-    int value[105][105];
-
 public:
+    int value[105][105];
     int ptype;
     chessBroad *cbroad;
 
